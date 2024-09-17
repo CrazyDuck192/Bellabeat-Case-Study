@@ -1,0 +1,371 @@
+---
+title: "FitBit fitness tracker data analysis"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup_1, include=FALSE}
+# deactivate any messages and warnings to show
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Introduction {#intro}
+This file contains analysis and visualizing of 
+[FitBit Fitness Tracker Data](https://www.kaggle.com/datasets/arashnic/fitbit) as a part of case study
+from [Google Data Analytics Professional Certificate program](https://www.coursera.org/professional-certificates/google-data-analytics).
+The main purpose of this analysis is searching for any trends and insights, creating
+meaningful visualizations to generate ideas for improving business and user experience. 
+Chapters of the file:
+
+1. [Introduction](#intro)
+2. [Setup](#setup)
+3. [Importing data](#import)
+4. [Data overview](#overview)
+4. [Analysis](#analysis)
+5. [Conclusions](#conclusions)
+
+
+## Setup {#setup}
+First of all, we need to load all required libraries we will use to analyze and
+visualize data.
+```{r setup_2}
+library(tidyverse)
+library(ggalt)
+library(cowplot)
+```
+
+
+## Importing data {#import}
+To start working with data we need to import all datasets we will use for analysis
+(all datasets were created using SQL on step "Process" of case study project). 
+We won't use data about weight and heart rate due to small user samples of 
+these datasets.
+
+```{r importing_datasets}
+daily_activity_total <- read.csv('prepared_data/daily_activity_total.csv')
+
+hourly_intensity_total <- read.csv('prepared_data/hourly_intensity_total.csv')
+
+hourly_steps_total <- read.csv('prepared_data/hourly_steps_total.csv')
+
+hourly_calories_total <- read.csv('prepared_data/hourly_calories_total.csv')
+
+daily_sleep_total <- read.csv('prepared_data/daily_sleep_total.csv')
+
+average_sleep_by_weekdays <- read.csv('prepared_data/average_sleep_by_weekdays.csv')
+
+bad_sleep_total <- read.csv('prepared_data/bad_sleep_total.csv')
+```
+
+
+## Data overview {#overview}
+Before starting the analysis, let's look at the datasets we have.
+
+```{r daily_activity_total_overview}
+head(daily_activity_total, 10)
+```
+
+```{r hourly_intensity_total_overview}
+head(hourly_intensity_total, 10)
+```
+
+```{r hourly_steps_total_overview}
+head(hourly_steps_total, 10)
+```
+
+```{r hourly_calories_total_overview}
+head(hourly_calories_total, 10)
+```
+
+```{r daily_sleep_total_overview}
+head(daily_sleep_total, 10)
+```
+
+```{r average_sleep_by_weekdays_overview}
+head(average_sleep_by_weekdays, 10)
+```
+
+```{r bad_sleep_total_overview}
+head(bad_sleep_total, 10)
+```
+
+
+## Analysis {#analysis}
+Now we can start our main part of analysis. We will research two aspects of
+user data: user activity and user sleep.
+
+Let's start with exploring number of steps users walk everyday:
+
+```{r daily_steps_vs_calories}
+# create scatter plot with trend line for daily activity
+daily_activity_total %>%
+  ggplot(mapping = aes(x = TotalSteps, y = Calories, colour = period)) +
+  geom_point(size = 1) + 
+  geom_smooth(mapping = aes(linetype = ''), 
+              se = FALSE, color = '#ff5959') +
+  scale_color_manual(values = c('march-april' = '#57abff', 
+                                'april-may' = '#304bff'), 
+                     name = 'Periods') + 
+  scale_linetype(name = "Trend line") + theme_bw() +
+  labs(x = 'Steps',
+       title = 'Relationship between number of steps and burned calories per day')
+```
+
+We can see strong relationship between number of steps and 
+number of burned calories per day. This fact is pretty obvious but now 
+we can see it clearly. And what about this relationship during a day by hours?
+
+```{r hourly_steps_vs_calories}
+# create line plot for steps
+steps_plot <- hourly_steps_total %>%
+  # group by hour of day and period
+  group_by(time_hour = hour(ActivityHour), period) %>% 
+  summarise(steps = mean(StepTotal)) %>%
+  ggplot(mapping = 
+           aes(x = time_hour, y = steps, group = period, 
+              colour = period)) + 
+  geom_point() + geom_xspline() +
+  scale_color_manual(values = c('march-april' = '#57abff', 
+                                'april-may' = '#304bff'), name = 'Periods') + 
+  theme_bw() +
+  labs(x = NULL, y = NULL,
+       title = '',
+       subtitle = 'Average number of steps during a day')
+
+
+# create line plot for calories
+calories_plot <- hourly_calories_total %>%
+  # group by hour of day and period
+  group_by(time_hour = hour(ActivityHour), period) %>%
+  summarise(calories = mean(Calories)) %>%
+  ggplot(mapping = aes(x = time_hour, y = calories, 
+                       group = period, color = period)) + 
+  geom_point() + geom_xspline() +
+  scale_color_manual(values = c('march-april' = '#57abff', 
+                                'april-may' = '#304bff'), name = 'Periods') +
+  theme_bw() +
+  labs(x = NULL, y = NULL, 
+       subtitle = 'Average number of burned calories during a day')
+
+
+# display both charts together to compare them
+plot_grid(steps_plot, calories_plot, nrow = 2)
+```
+
+And here we can see how similar these patterns are. So thanks to these charts we 
+made sure that walking is important to burn calories.
+
+But what about real number of steps users walk everyday in average?
+```{r average_steps_by_user}
+# group records by user Id to find average number of steps of every user
+daily_activity_grouped <- daily_activity_total %>%
+  group_by(Id) %>%
+  summarise(average_steps = mean(TotalSteps))
+
+# create bar plot for average number of steps of every user
+daily_activity_grouped %>%
+  ggplot(mapping = aes(x = reorder(as.character(Id), average_steps), 
+                       y = average_steps, 
+                       fill = average_steps > 6000)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  scale_fill_manual(values = c('FALSE' = '#ff5959', 'TRUE' = '#304bff'), 
+                    name = 'Steps > 6000') +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + 
+  labs(x = NULL, y = 'Average number of steps',
+       title = "Average number of steps each user walk per day")
+
+# total number of users
+length(daily_activity_grouped$average_steps)
+# number of users who walk less than 6000 steps per day in average
+sum(daily_activity_grouped$average_steps < 6000)
+```
+
+We can see that 14 of 35 users walk less than 6000 steps per day in average
+(when it is recommended to walk at least 6000-8000 steps per day).
+
+Next, let's review user's activity at the whole. We will start with time distributions 
+of different activity types by days of week:
+```{r daily_intensity_types}
+# create bar plot for every intensity type
+daily_activity_total %>%
+  group_by(week_day = wday(ActivityDate, label = TRUE, abbr = FALSE, 
+                           week_start = 1, locale = 'English')) %>%
+  # summarize by every type of intensity
+  summarise(very_active = mean(VeryActiveMinutes),
+            fairly_active = mean(FairlyActiveMinutes),
+            lightly_active = mean(LightlyActiveMinutes)) %>%
+  pivot_longer(cols = c('very_active', 'fairly_active', 'lightly_active'),
+               names_to = 'intensity', values_to = 'minutes') %>%
+  transform(
+    # order intensity types from top to bottom within legend
+    intensity = factor(intensity, 
+                       levels = c('lightly_active',
+                                  'fairly_active',
+                                  'very_active'),
+                       labels = c('Lightly active',
+                                  'Fairly active',
+                                  'Very active'))) %>%
+  ggplot(mapping = aes(x = week_day, y = minutes, fill = intensity)) + 
+  geom_bar(stat = 'identity', position = 'dodge') + 
+  facet_grid(rows = vars(intensity), scales = 'free') + 
+  scale_fill_manual(values = c('Lightly active' = '#52c5ff',
+                               'Fairly active' = '#5294ff',
+                               'Very active' = '#0f73ff'), name = 'Intensities') + 
+  theme_bw() + 
+  labs(x = NULL, y = 'Minutes',
+       title = 'Time of different intensity types')
+```
+
+As we can see, average time of lightly active intensity per day is around 180-190 minutes,
+average time of fairly active intensity is around 13-14 minutes and time of very active time
+is around 19-20 minutes.
+
+Let's research relationships between intensity time and other statistics:
+
+```{r hourly_calories_vs_intensity}
+# merge calories dataset and intensity dataset to
+# create scatter plot with trend line
+merge(x = hourly_calories_total, 
+      y = hourly_intensity_total, 
+      by.x = c('Id', 'ActivityHour', 'period'),
+      by.y = c('Id', 'ActivityHour', 'period')) %>%
+  ggplot(mapping = aes(x = Calories, y = TotalIntensity, colour = period)) +
+  geom_point(size = 1) + 
+  geom_smooth(mapping = aes(linetype = ''), se = FALSE, color = '#ff5959') +
+  scale_color_manual(values = c('march-april' = '#57abff','april-may' = '#304bff'),
+                     name = 'Periods') + 
+  scale_linetype(name = "Trend line") + theme_bw() +
+  labs(x = 'Calories', y = 'Intensity value',
+       title = 'Relationship between burned calories and intensity value')
+```
+
+Quite obvious that there is positive correlation between intensity time and
+number of burned calories per hour.
+
+```{r daily_sleep_vs_intensity}
+# merge daily sleep dataset and hourly intensity dataset together
+# to create scatter plot with trend line
+merge(x = daily_sleep_total %>% transform(SleepDay = date(SleepDay)),
+      y = hourly_intensity_total %>% 
+        group_by(Id, activity_day = date(ActivityHour), period) %>%
+        summarise(total_intensity = sum(TotalIntensity)),
+      by.x = c('Id', 'SleepDay', 'period'),
+      by.y = c('Id', 'activity_day', 'period')) %>%
+  ggplot(mapping = aes(x = TotalMinutesAsleep, y = total_intensity, 
+                       colour = period, group = 1)) +
+  geom_point(size = 1) +
+  geom_smooth(mapping = aes(linetype = ''), 
+              se = FALSE, color = '#ff5959') +
+  scale_color_manual(values = c('march-april' = '#57abff', 
+                                'april-may' = '#304bff'), 
+                     name = 'Periods') + 
+  scale_linetype(name = "Trend line") + theme_bw() +
+  labs(x = 'Minutes asleep',
+       y = 'Intensity value',
+       title = 'Relationship between sleep time and intensity value')
+```
+
+Not so obvious: there is no correlation between intensity time and sleep time. 
+
+
+```{r daily_sleep_vs_sedentary_time}
+# merge daily sleep dataset and daily activity dataset together 
+# to create scatter plot with trend line
+merge(x = daily_sleep_total,
+      y = daily_activity_total,
+      by.x = c('Id', 'SleepDay', 'period'),
+      by.y = c('Id', 'ActivityDate', 'period')) %>%
+  ggplot(mapping = aes(x = SedentaryMinutes, y = TotalMinutesAsleep, colour = period)) +
+  geom_point(size = 1) +
+  geom_smooth(mapping = aes(linetype = ''), 
+              se = FALSE, color = '#ff5959') +
+  scale_color_manual(values = c('march-april' = '#57abff', 
+                                'april-may' = '#304bff'), 
+                     name = 'Periods') + 
+  scale_linetype(name = "Trend line") + theme_bw() +
+  labs(x = 'Sedentary minutes',
+       y = 'Minutes asleep',
+       title = 'Relationship between sleep time and sedentary time, minutes')
+```
+
+And here we can see an interesting trend: there is negative correlation
+between sleep time and sedentary time. Thus we can say that spending less time
+sitting can improve user's sleep.
+
+But how users really sleep? Let's answer this question:
+
+```{r weekdays_average_sleep_time}
+# create bar plot for sleep time by days of week
+average_sleep_by_weekdays %>% 
+  transform(WeekDay = wday(1:7, label = TRUE, 
+                           abbr = FALSE, locale = 'English')) %>%
+  ggplot(mapping = aes(x = WeekDay, y = AverageMinutesAsleep)) +
+  geom_bar(stat = 'identity', fill = '#4f85ff') + theme_bw() +
+  labs(x = NULL, y = 'Minutes',
+       title = 'Average sleep time, minutes')
+```
+
+In average users sleep longer on weekends and most of the week they sleep less
+than 7 hours (which is minimum recommended sleep time).
+
+```{r average_sleep_time_by_user}
+# group records by user Id to find average sleep time of every user
+daily_sleep_grouped <- daily_sleep_total %>%
+  group_by(Id) %>%
+  summarise(average_sleep_minutes = mean(TotalMinutesAsleep))
+
+# create bar plot for average sleep time by user
+daily_sleep_grouped %>%
+  ggplot(mapping = aes(x = reorder(as.character(Id), average_sleep_minutes), 
+                       y = average_sleep_minutes, 
+                       fill = average_sleep_minutes >= 420)) +
+  geom_bar(stat = 'identity', position = 'dodge') +
+  scale_fill_manual(values = c('FALSE' = '#ff5959', 'TRUE' = '#304bff'), 
+                    name = 'Sleep time, minutes >= 420') + theme_bw() +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) + 
+  labs(x = NULL, y = 'Average sleep time',
+       title = "Average sleep time of every user, minutes")
+
+# total number of users
+length(daily_sleep_grouped$average_sleep_minutes)
+# number of users who sleep less than 7 hours per day in average
+sum(daily_sleep_grouped$average_sleep_minutes < 420)
+```
+
+Most of the users sleep less than 7 hours in average! Some of them even sleep
+less than 3 hours! This requires special attention but we need more data 
+for deeper analysis.
+
+```{r bad_sleep}
+# create bar plot for number of bad sleep days 
+# (when user sleeps less than 7 hours) by days of week
+merge(bad_sleep_total,
+      bad_sleep_total %>% group_by(Id) %>% summarise(total_days = sum(days)), 
+      by = c('Id')) %>%
+  ggplot(mapping = aes(x = reorder(as.character(Id), -total_days), 
+                       y = days, fill = period)) + 
+  geom_bar(stat = 'identity') +
+  scale_fill_manual(values = c('march-april' = '#59a7ff', 
+                               'april-may' = '#4278ff'), 
+                    labels = c('march-april', 'april-may'),
+                    name = 'Periods') + theme_bw() + 
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  labs(x = NULL, y = 'Number of days', 
+       title = "Number of days each user slept less than 7 hours")
+```
+
+And here we can see that some of the users most of the days slept less 
+than 7 hours per day. Lack of sleep can be serious problem so this situation 
+requires special attention.
+
+
+## Conclusions {#conclusions}
+We have analysed data from users fitness trackers for two months, 
+have researched users physical activity and sleep and now we can summarise gained results:
+
+* walking and physical activity is important to burn more calories per day
+* the most active period of day is from 10 to 18 hours
+* more than 1/3 of users walk less than 6000 steps which is the minimal recommended number of steps
+* more than 80% of time users spend sedentary
+* 2/3 of users sleep less than 7 hours per day in average
+* decreasing sedentary time can lead to better sleep
