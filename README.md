@@ -10,7 +10,7 @@
 - [Act](#act)
 
 ## Introduction <a id="introduction"></a>
-This is Bellabeat data analysis case study as final project of [Google Data Analytics Professional Certificate program]("https://www.coursera.org/professional-certificates/google-data-analytics"). Bellabeat company was founded in 2014 and specialises on creating health-focused smart products for women. During this case study we will go through all data analysis steps: ask, prepare, process, analyse, share and act and research user patterns and habits of using Bellabeat's devices to suggest ways to improve user experience and products sales.
+This is Bellabeat data analysis case study as final project of [Google Data Analytics Professional Certificate program](https://www.coursera.org/professional-certificates/google-data-analytics). Bellabeat company was founded in 2014 and specialises on creating health-focused smart products for women. During this case study we will go through all data analysis steps: ask, prepare, process, analyse, share and act and research user patterns and habits of using Bellabeat's devices to suggest ways to improve user experience and products sales.
 
 ## 🤔Ask <a id="ask"></a>
 Every analysis starts with problem statement: our main goal is to increase sales of Bellabeat's smart devices. And to reach this goal we should go through the following milestones:
